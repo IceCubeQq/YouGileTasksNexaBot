@@ -11,6 +11,7 @@ class YouGileUserManager(models.Manager):
 
 class YouGileUser(models.Model):
     telegram_id = models.IntegerField("ID в Telegram", unique=True, primary_key=True)
+    telegram_username = models.CharField("Username в Telegram", max_length=255, null=True, blank=True)
     yougile_id = models.CharField("ID в YouGile", max_length=255, null=True, blank=True)
     yougile_email = models.EmailField("Email в YouGile", null=True, blank=True)
     default_project_id = models.CharField("Проект по умолчанию", max_length=255, null=True, blank=True)
