@@ -1,6 +1,6 @@
 import os
 from telegram.ext import Application
-from .transport.bot.handlers import get_handlers
+from app.internal.transport.bot.handlers import get_handlers
 
 class TelegramBot:
     def __init__(self, token):
@@ -21,3 +21,4 @@ def create_bot():
     if not token:
         raise ValueError("Не удалось найти TELEGRAM_BOT_TOKEN")
     return TelegramBot(token)
+
