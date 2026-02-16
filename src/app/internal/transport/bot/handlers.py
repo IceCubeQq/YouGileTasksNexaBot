@@ -1,5 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CommandHandler, MessageHandler, filters
+from telegram.constants import ReactionEmoji
 import re
 
 from app.internal.services.user_service import UserService
@@ -22,7 +23,6 @@ class BotHandlers:
             f"/link_yougile - Привязать аккаунт YouGile\n"
             f"/link_username - Привязать Telegram username (чтобы вас могли назначать)\n"
             f"/set_default_column - Выбрать колонку по умолчанию\n"
-            f"/me - Информация о вашем аккаунте\n\n"
             f"Просто упомяни меня в сообщении, чтобы создать задачу:\n"
             f"@bot Название задачи - описание\n\n"
             f"Чтобы назначить исполнителя, добавьте @username в конце:\n"
@@ -142,6 +142,12 @@ class BotHandlers:
         message_text = update.message.text
         message_entities = update.message.entities or []
         bot_mentioned = False
+
+        reply_to_message = update.message.reply_to_message
+        reply_text = None
+        if reply_to_message:
+            reply_text = reply_to_message.text or reply_to_message.caption or ""
+
         for entity in message_entities:
             if entity.type == "mention":
                 mention = message_text[entity.offset:entity.offset + entity.length]
@@ -156,89 +162,71 @@ class BotHandlers:
                 return
             task_text = message_text.replace(f"@{bot_username}", "").strip()
 
-        if not task_text:
-            await update.message.reply_text(
-                "Вы не указали название задачи\n"
-                "Пример: @bot Исправить баг с авторизацией - срочно"
-            )
+        if not task_text and not reply_to_message:
+            await update.message.set_reaction(reaction=ReactionEmoji.THUMBS_DOWN)
             return
 
         telegram_id = update.effective_user.id
         db_user = await UserService.get_user_by_id(telegram_id)
-
         if not db_user:
-            await update.message.reply_text("Сначала запустите бота: /start")
+            await update.message.set_reaction(reaction=ReactionEmoji.THUMBS_DOWN)
             return
 
         if not db_user.yougile_email:
-            await update.message.reply_text(
-                "У вас не настроена интеграция с YouGile\n"
-                "Используйте /link_yougile ваш@email.com"
-            )
+            await update.message.set_reaction(reaction=ReactionEmoji.THUMBS_DOWN)
             return
 
         if not db_user.telegram_username and update.effective_user.username:
             await UserService.set_telegram_username(telegram_id, update.effective_user.username)
 
-        await update.message.reply_text("🔄 Создаю задачу в YouGile...")
-
+        await update.message.set_reaction(reaction=ReactionEmoji.THUMBS_UP)
         executor_username = None
         executor_id = None
-        all_mentions = re.findall(r'@(\w+)', task_text)
+        all_mentions = re.findall(r'@(\w+)', task_text or "")
 
         if all_mentions:
             executor_username = all_mentions[-1]
-            task_text = task_text.replace(f"@{executor_username}", "").strip()
+            if task_text:
+                task_text = task_text.replace(f"@{executor_username}", "").strip()
             executor_id = await UserService.get_yougile_id_by_telegram_username(executor_username)
 
-            if executor_id:
-                await update.message.reply_text(f"Исполнитель @{executor_username} найден в YouGile")
+            if not executor_id:
+                try:
+                    await context.bot.send_message(chat_id=telegram_id,
+                        text=f"Пользователь @{executor_username} не привязал YouGile аккаунт\nЗадача будет создана без исполнителя"
+                    )
+                except:
+                    pass
+
+        if reply_to_message and reply_text:
+            if task_text:
+                title = task_text[:100]
+                description = f"{task_text}\n\n📎 Оригинальное сообщение\n{reply_text}"
             else:
-                await update.message.reply_text(
-                    f"Пользователь @{executor_username} не привязал YouGile аккаунт\n"
-                    f"Задача будет создана без исполнителя"
-                )
-        parts = task_text.split(' - ', 1)
-        title = parts[0]
-        description = parts[1] if len(parts) > 1 else None
+                title = reply_text[:100] + ("..." if len(reply_text) > 100 else "")
+                description = f"Оригинальное сообщение:\n{reply_text}"
+        else:
+            parts = (task_text or "").split(' - ', 1)
+            title = parts[0] if parts[0] else "Без названия"
+            description = parts[1] if len(parts) > 1 else None
+
         try:
             yougile = YougileService()
-
             task = await yougile.create_task(title=title, description=description, column_id=db_user.default_column_id or None,
                 executor_id=executor_id
             )
 
             if task:
-                response = (
-                    f"Задача создана!\n\n"
-                    f"{task['title']}\n"
-                    f"Открыть в YouGile({task['url']})\n"
-                )
-
-                if description:
-                    response += f"{description}\n"
-
-                if executor_id and executor_username:
-                    response += f"Исполнитель: @{executor_username}\n"
-                elif executor_username:
-                    response += f"Исполнитель: @{executor_username} (не привязан)\n"
-
-                await update.message.reply_text(response, parse_mode='Markdown', disable_web_page_preview=True)
+                pass
             else:
-                await update.message.reply_text(
-                    "Не удалось создать задачу. Проверьте логи"
-                )
-
-        except ValueError as e:
-            await update.message.reply_text(
-                f"Ошибка конфигурации YouGile\n"
-                f"Сообщите администратору"
-            )
+                await update.message.set_reaction(reaction=ReactionEmoji.THUMBS_DOWN)
+                try:
+                    await context.bot.send_message(chat_id=telegram_id, text="Не удалось создать задачу. Проверьте логи")
+                except:
+                    pass
         except Exception as e:
-            await update.message.reply_text(
-                f"Ошибка при создании задачи\n"
-                f"Попробуйте позже"
-            )
+            await update.message.set_reaction(reaction=ReactionEmoji.THUMBS_DOWN)
+            pass
 
     @staticmethod
     async def set_default_column(update, context):
