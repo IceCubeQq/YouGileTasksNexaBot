@@ -6,13 +6,12 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv()
 
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
-DEBUG = os.environ.get('DEBUG')
-
-YOUGILE_API_KEY = os.environ.get('YOUGILE_API_KEY')
-YOUGILE_PROJECT_ID = os.environ.get('YOUGILE_PROJECT_ID')
-YOUGILE_COLUMN_ID = os.environ.get('YOUGILE_COLUMN_ID')
+TELEGRAM_BOT_TOKEN="8370983286:AAEH2VS7xp2fMsrRyGHX8zkMSp8aYXKDp14"
+DJANGO_SECRET_KEY="django-insecure-06&&*q-i#ym#au_ie$lqxwj^g)l7xy9mj=##5lbp5$+4g632gp"
+DEBUG=False
+YOUGILE_API_KEY="ZAyaGd59rZs-cLMrMYdzd4UuoAtPoALThT8C2YnqIhTeMY4xWTkboe69MzXh1-Mv"
+YOUGILE_PROJECT_ID="5078835c-a639-4330-b0ce-4f0338d610ec"
+YOUGILE_COLUMN_ID="36ab55d0-2bce-4665-90dd-4f0c6285f581"
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
