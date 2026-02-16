@@ -1,27 +1,19 @@
-from django.db import models
+from django.contrib import admin
+from django.utils.html import format_html
+from app.internal.models.user import YouGileUser
 
 
-class YouGileUserManager(models.Manager):
-    async def async_get(self, **kwargs):
-        return await self.aget(**kwargs)
-
-    async def async_get_or_create(self, **kwargs):
-        return await self.aget_or_create(**kwargs)
-
-
-class YouGileUser(models.Model):
-    telegram_id = models.IntegerField("ID в Telegram", unique=True, primary_key=True)
-    telegram_username = models.CharField("Username в Telegram", max_length=255, null=True, blank=True)
-    yougile_id = models.CharField("ID в YouGile", max_length=255, null=True, blank=True)
-    yougile_email = models.EmailField("Email в YouGile", null=True, blank=True)
-    default_project_id = models.CharField("Проект по умолчанию", max_length=255, null=True, blank=True)
-    default_column_id = models.CharField("Колонка по умолчанию", max_length=255, null=True, blank=True)
-
-    objects = YouGileUserManager()
-
-    class Meta:
-        verbose_name = "Пользователь YouGile"
-        verbose_name_plural = "Пользователи YouGile"
-
-    def __str__(self):
-        return f"{self.yougile_email or self.telegram_id}"
+@admin.register(YouGileUser)
+class YouGileUserAdmin(admin.ModelAdmin):
+    list_display = ('telegram_id', 'yougile_id', 'default_project_id', 'default_column_id')
+    list_filter = ('yougile_email', 'default_project_id', 'default_column_id')
+    search_fields = ('telegram_id', 'yougile_email', 'yougile_id')
+    readonly_fields = ('telegram_id', 'yougile_id')
+    fieldsets = (
+        ('Telegram', {'fields': ('telegram_id',)}),
+        ('Интеграция с YouGile', {'fields':
+            ('yougile_id', 'yougile_email', 'default_project_id', 'default_column_id',),
+            'classes': ('wide',),
+            'description': 'Настройки интеграции с YouGile. Заполняются автоматически при /link_yougile',
+        }),
+    )
