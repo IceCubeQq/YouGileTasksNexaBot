@@ -1,7 +1,6 @@
 import os
 from telegram.ext import Application
-from app.internal.transport.bot.handlers import get_handlers
-
+from .transport.bot.handlers import get_handlers
 
 class TelegramBot:
     def __init__(self, token):
